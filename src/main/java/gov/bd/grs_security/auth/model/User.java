@@ -12,7 +12,7 @@ import org.hibernate.annotations.NotFoundAction;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "users")
+@Table(name = "doptor_users")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
