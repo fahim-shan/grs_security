@@ -1,14 +1,26 @@
 package gov.bd.grs_security.auth.service;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import gov.bd.grs_security.auth.dao.GrsRoleDao;
+import gov.bd.grs_security.auth.model.GrsRole;
 import gov.bd.grs_security.auth.payload.LoginRequest;
 import gov.bd.grs_security.auth.payload.LoginResponse;
+import gov.bd.grs_security.auth.payload.UserInformation;
+import gov.bd.grs_security.auth.payload.doptor.*;
+import gov.bd.grs_security.common.util.Utility;
 import gov.bd.grs_security.config.GrantedAuthorityImpl;
 import gov.bd.grs_security.config.JwtService;
 import gov.bd.grs_security.config.UserDetailsImpl;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -18,6 +30,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final UserDetailsServiceImpl userDetailsService;
     private final GRSUserDetailsServiceImpl grsUserDetailsService;
+    private final GrsRoleDao grsRoleDAO;
 
     public LoginResponse login(LoginRequest request) {
         try {
@@ -79,5 +92,59 @@ public class AuthService {
             log.error("Exception while processing refresh token\n{}", e.toString());
             return null;
         }
+    }
+
+    public LoginResponse adminLogin(String data, HttpServletRequest request, HttpServletResponse response) throws Exception {
+
+        String jsonData = Utility.decompress(data);
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        DoptorLoginResponse loginResponse = mapper.readValue(jsonData, DoptorLoginResponse.class);
+        return afterLoginDoptorResponse(loginResponse, request, response);
+
+    }
+
+
+    public LoginResponse afterLoginDoptorResponse(DoptorLoginResponse loginResponse, HttpServletRequest request, HttpServletResponse response) throws Exception {
+
+        User user1 = loginResponse.getUser_info().getUser();
+        UserInfo userInfo = loginResponse.getUser_info();
+
+        RestTemplate restTemplate = new RestTemplate();
+        String apiUrl = "http://192.168.10.16/api/oisfuser/userinfo";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<UserInfo> requestEntity = new HttpEntity<>(userInfo, headers);
+
+        ResponseEntity<UserInformation> responseEntity = restTemplate.exchange(
+                apiUrl,
+                HttpMethod.POST,
+                requestEntity,
+                UserInformation.class
+        );
+
+        UserInformation userInformation = responseEntity.getBody();
+
+        String roleName = null;
+        if (userInformation.getGrsUserType() != null) {
+            roleName = userInformation.getGrsUserType().name();
+        } else {
+            roleName = userInformation.getOisfUserType().name();
+        }
+        GrsRole grsRole = this.grsRoleDAO.findByRole(roleName);
+        List<GrantedAuthorityImpl> grantedAuthorities = grsRole
+                .getPermissions()
+                .stream()
+                .map(permission -> GrantedAuthorityImpl.builder()
+                        .authority(permission.getName())
+                        .build()).collect(Collectors.toList());
+
+        UserDetailsImpl userDetails = UserDetailsImpl.builder()
+                .username(user1.getUsername())
+                .isAccountAuthenticated(true)
+                .grantedAuthorities(grantedAuthorities).userInformation(userInformation).build();
+
+        return constructLoginResponse(userDetails);
     }
 }

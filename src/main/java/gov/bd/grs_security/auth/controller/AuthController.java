@@ -3,6 +3,8 @@ package gov.bd.grs_security.auth.controller;
 import gov.bd.grs_security.auth.payload.LoginRequest;
 import gov.bd.grs_security.auth.payload.LoginResponse;
 import gov.bd.grs_security.auth.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,5 +28,13 @@ public class AuthController {
     @ResponseBody
     public LoginResponse refresh(@RequestParam String refreshToken) {
         return authService.refresh(refreshToken);
+    }
+
+    @PostMapping("/admin-login")
+    @ResponseBody
+    public LoginResponse adminLogin(@RequestParam String data,
+                                    HttpServletRequest request,
+                                    HttpServletResponse response) throws Exception {
+        return authService.adminLogin(data, request, response);
     }
 }
