@@ -111,7 +111,7 @@ public class AuthService {
         UserInfo userInfo = loginResponse.getUser_info();
 
         RestTemplate restTemplate = new RestTemplate();
-        String apiUrl = "http://192.168.10.16/api/oisfuser/userinfo";
+        String apiUrl = "http://localhost:8081/grs_server/api/oisfuser/userinfo";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
