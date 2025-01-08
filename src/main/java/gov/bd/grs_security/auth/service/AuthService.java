@@ -3,6 +3,7 @@ package gov.bd.grs_security.auth.service;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import gov.bd.grs_security.auth.dao.GrsRoleDao;
+import gov.bd.grs_security.auth.gateway.OISFUserDetailsServiceGateway;
 import gov.bd.grs_security.auth.model.GrsRole;
 import gov.bd.grs_security.auth.payload.LoginRequest;
 import gov.bd.grs_security.auth.payload.LoginResponse;
@@ -30,24 +31,45 @@ public class AuthService {
     private final JwtService jwtService;
     private final UserDetailsServiceImpl userDetailsService;
     private final GRSUserDetailsServiceImpl grsUserDetailsService;
+    private final OISFUserDetailsServiceImpl oisfUserDetailsService;
     private final GrsRoleDao grsRoleDAO;
+    private final OISFUserDetailsServiceGateway oisfUserDetailsServiceGateway;
 
     public LoginResponse login(LoginRequest request) {
         try {
-            LoginResponse response = new LoginResponse();
+            // 1) Try to Login for Complainant
             UserDetailsImpl userDetails1 = userDetailsService.loadUserbyUsernameAndPassword(request.getUsername(), request.getPassword());
+
+            // 2) If that failed, try to Login for SuperAdmin
             if (userDetails1 == null || userDetails1.getUserInformation() == null) {
                 UserDetailsImpl userDetails2 = grsUserDetailsService.loadUserByUsernameAndPassword(request.getUsername(), request.getPassword());
-                if (userDetails2 != null && userDetails2.getUserInformation() != null) {
-                    return constructLoginResponse(userDetails2);
+
+                // 3) If that also failed, try to login for Admin Officers Login Bypass
+                if (userDetails2 == null || userDetails2.getUserInformation() == null) {
+                    UserDetailsImpl userDetails3 = oisfUserDetailsService.loadUserByUsernameAndPassword(request.getUsername(), request.getPassword());
+
+                    // 4) If Admin Login Bypass also failed, return bad credentials
+                    if (userDetails3 == null || userDetails3.getUserInformation() == null) {
+                        return new LoginResponse(
+                                false,
+                                "Bad Credentials",
+                                null,
+                                null,
+                                null,
+                                null
+                        );
+                    } else {
+                        return constructLoginResponse(userDetails3);
+                    }
                 } else {
-                    return new LoginResponse(false, "Bad Credentials", null, null, null, null);
+                    return constructLoginResponse(userDetails2);
                 }
             } else {
                 return constructLoginResponse(userDetails1);
             }
+
         } catch (Exception e) {
-            log.error("Error handling login{}", e.toString());
+            log.error("Error handling login {}", e.toString());
             return new LoginResponse(false, "Internal Server Error", null, null, null, null);
         }
     }
@@ -110,21 +132,7 @@ public class AuthService {
         User user1 = loginResponse.getUser_info().getUser();
         UserInfo userInfo = loginResponse.getUser_info();
 
-        RestTemplate restTemplate = new RestTemplate();
-        String apiUrl = "http://localhost:8081/grs_server/api/oisfuser/userinfo";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<UserInfo> requestEntity = new HttpEntity<>(userInfo, headers);
-
-        ResponseEntity<UserInformation> responseEntity = restTemplate.exchange(
-                apiUrl,
-                HttpMethod.POST,
-                requestEntity,
-                UserInformation.class
-        );
-
-        UserInformation userInformation = responseEntity.getBody();
+        UserInformation userInformation = oisfUserDetailsServiceGateway.getUserInformation(userInfo);
 
         String roleName = null;
         if (userInformation.getGrsUserType() != null) {
