@@ -7,6 +7,7 @@ import gov.bd.grs_security.auth.gateway.OISFUserDetailsServiceGateway;
 import gov.bd.grs_security.auth.model.GrsRole;
 import gov.bd.grs_security.auth.payload.LoginRequest;
 import gov.bd.grs_security.auth.payload.LoginResponse;
+import gov.bd.grs_security.auth.payload.PasswordChange;
 import gov.bd.grs_security.auth.payload.UserInformation;
 import gov.bd.grs_security.auth.payload.doptor.*;
 import gov.bd.grs_security.common.util.Utility;
@@ -18,6 +19,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -34,6 +36,7 @@ public class AuthService {
     private final OISFUserDetailsServiceImpl oisfUserDetailsService;
     private final GrsRoleDao grsRoleDAO;
     private final OISFUserDetailsServiceGateway oisfUserDetailsServiceGateway;
+    private final BCryptPasswordEncoder bCryptPasswordEncoder;
 
     public LoginResponse login(LoginRequest request) {
         try {
@@ -154,5 +157,20 @@ public class AuthService {
                 .grantedAuthorities(grantedAuthorities).userInformation(userInformation).build();
 
         return constructLoginResponse(userDetails);
+    }
+
+    public String superAdminPasswordChange(PasswordChange passwordChange) {
+        UserDetailsImpl userDetails = grsUserDetailsService.loadUserByUsernameAndPassword(passwordChange.getUsername(), passwordChange.getOldPassword());
+
+        if (userDetails == null) {
+            return "Could not find user by this username";
+        }
+
+        if (passwordChange.getNewPassword().equals(passwordChange.getConfirmPassword())) {
+            grsUserDetailsService.updatePassword(passwordChange.getUsername(), passwordChange.getNewPassword());
+            return "Password changed successfully";
+        } else {
+            return "New password and confirm password does not match";
+        }
     }
 }

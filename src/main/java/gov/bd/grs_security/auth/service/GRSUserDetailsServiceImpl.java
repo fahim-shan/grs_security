@@ -82,4 +82,18 @@ public class GRSUserDetailsServiceImpl implements UserDetailsService {
     public GRSUserType getGRSUserTypeFromRole(SuperAdmin user) {
         return GRSUserType.valueOf(user.getRole().getRole());
     }
+
+    public void updatePassword(String username, String newPassword) {
+
+        SuperAdmin user = superAdminRepo.findByUsername(username);
+
+        if (user == null) {
+            throw new UsernameNotFoundException("User not found with username: " + username);
+        }
+
+        String encryptedPassword = bCryptPasswordEncoder.encode(newPassword);
+        user.setPassword(encryptedPassword);
+
+        superAdminRepo.save(user);
+    }
 }

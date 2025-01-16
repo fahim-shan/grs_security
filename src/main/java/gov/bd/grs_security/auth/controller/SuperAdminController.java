@@ -1,12 +1,19 @@
 package gov.bd.grs_security.auth.controller;
 
 import gov.bd.grs_security.auth.model.SuperAdmin;
+import gov.bd.grs_security.auth.payload.PasswordChange;
 import gov.bd.grs_security.auth.repository.SuperAdminRepository;
+import gov.bd.grs_security.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 @RestController
@@ -15,6 +22,7 @@ import java.util.List;
 public class SuperAdminController {
 
     private final SuperAdminRepository superAdminRepo;
+    private final AuthService authService;
 
     @PostMapping("/findByUsername")
     public SuperAdmin findByUsername(@RequestParam String username){
@@ -56,4 +64,13 @@ public class SuperAdminController {
     public List<SuperAdmin> findAll() {
         return superAdminRepo.findAll();
     }
+
+    @PostMapping("/passwordChange")
+    public Map<String, Object> superAdminPasswordChange(@RequestBody PasswordChange passwordChange) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", authService.superAdminPasswordChange(passwordChange));
+        return response;
+    }
+
 }
