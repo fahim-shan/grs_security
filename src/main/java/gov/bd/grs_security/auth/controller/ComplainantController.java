@@ -27,8 +27,8 @@ public class ComplainantController {
         return complainantRepo.findByUsernameAndPassword(Username, password);
     };
 
-    @PostMapping("/findByPhoneNumber")
-    public Complainant findByPhoneNumber(@RequestParam String phoneNumber) {
+    @GetMapping("/findByPhoneNumber/{phoneNumber}")
+    public Complainant findByPhoneNumber(@PathVariable String phoneNumber) {
         return complainantRepo.findByPhoneNumber(phoneNumber);
     };
 
